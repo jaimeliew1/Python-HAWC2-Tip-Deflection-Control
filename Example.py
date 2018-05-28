@@ -4,13 +4,14 @@ Course      : Master Thesis Project
 Date        : 20-Jan-2018
 Author      : Jaime Liew - S141777
 Email       : Jaimeliew1@gmail.com
-Description : Example script for HAWC2_TCP link. Adds a sinusoidal pitch angle
+Description : Demonstration if individual pitch control. This script
+contains the controller code which is interfaced in realtime with a
+HAWC2 simulation using the HAWC2Interface Module.
 demand to each blade.
 """
 
 from HAWC2_TCP import HAWC2Interface
 import numpy as np
-from numpy import pi, cos
 
 
 class IPC(HAWC2Interface):
@@ -61,19 +62,19 @@ class IPC(HAWC2Interface):
 
 
 
+if __name__ == '__main__':
+    # IPC filter coefficients
+    K = -1
+    b = [0.04139865635722332, -0.24724984420650856, 0.6153247291080708,
+        -0.8167730078549886, 0.6098892568550152, -0.24290112363655772,
+        0.04031133337781191]
+    a = [1.0, -5.918976177119697, 14.597287405477822, -19.19933888234148,
+         14.204054827782327, -5.6043617399861, 0.9213345662369582]
 
-# IPC filter coefficients
-K = -1
-b = [0.04139865635722332, -0.24724984420650856, 0.6153247291080708,
-    -0.8167730078549886, 0.6098892568550152, -0.24290112363655772,
-    0.04031133337781191]
+    simTime, sampleTime = 100, 0.01
+    N_iters = int(simTime/sampleTime)
 
-a = [1.0, -5.918976177119697, 14.597287405477822, -19.19933888234148,
-     14.204054827782327, -5.6043617399861, 0.9213345662369582]
-
-simTime, sampleTime = 100, 0.01
-N_iters = int(simTime/sampleTime)
-
-HAWC2 = IPC('DTU10MW_Turbine/', K, b, a)
-HAWC2.run('htc/IPCExample.htc', N_iters)
+    # Run HAWC2 with Python interface.
+    HAWC2 = IPC('DTU10MW_Turbine/', K, b, a)
+    HAWC2.run('htc/IPCExample.htc', N_iters)
 

@@ -43,7 +43,7 @@ class HAWC2Interface(object):
 
         # main iteration loop
         for i in range(N_iter - 1):
-            inData  = HAWC2.getMessage(Nkeep=3)
+            inData  = HAWC2.getMessage(Nkeep=100)
             outData = self.update(inData)
             HAWC2.sendMessage(outData)
 

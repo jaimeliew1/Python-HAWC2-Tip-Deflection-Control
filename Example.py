@@ -13,40 +13,67 @@ import numpy as np
 from numpy import pi, cos
 
 
-class ExamplePitchSineWave(HAWC2Interface):
+class IPC(HAWC2Interface):
     # A class which executes your custom python function.
-    def __init__(self, modeldir, amp):
-        # If you would like to initialise variables, make sure to call
-        # the super __init__ function as follows. Make sure to pass
-        # self and the model directory arguments.
+    def __init__(self, modeldir, K, b, a):
         HAWC2Interface.__init__(self, modeldir)
-        self.amp = amp
+
+        self.N = len(b) # order of filter
+        self.K = K # Proportional gain of filter
+        self.b = b # Numerator coefficients of filter
+        self.a = a # Denominator coefficients of coefficients
+        #note. len(b) == len(a) == N
+
+        # placeholders for storing the past N inputs and outputs.
+        # Assumes 3 blades
+        self.x_ = np.zeros([3, self.N])
+        self.y_ = np.zeros([3, self.N])
 
 
-    # This is where the magic happens. This function is called each
-    # time step. it receives two arguments: self, and a numpy array of
-    # the HAWC2 output. The function then returns a list or numpy array
-    # back to HAWC2 as an input vector.
-    # Set this function to what you want.
+
     def update(self, array1):
-        t, azim = array1[0], array1[1]
+        theta       = array1[1:4] # Power pitch demand
+        x           = array1[4:7] # tip deflection [m]
 
-        print('\r Time elapsed: {:2.2f}s'.format(t), end='')
+        x           = x - np.mean(x)   # Center about the mean
 
-        theta    =   [0,0,0]
-        theta[0] =   self.amp*cos(azim + 0.174)
-        theta[1] =   self.amp*cos(azim + 0.174 - 2/3*pi)
-        theta[2] =   self.amp*cos(azim + 0.174 - 4/3*pi)
+        # shift index of past states by 1. eg: [1,2,3,4] -> [4,1,2,3]
+        N = self.N
+        self.x_[:, 1:N] = self.x_[:, 0:N-1]
+        self.y_[:, 1:N] = self.y_[:, 0:N-1]
+        self.x_[:, 0]     = x
+        self.y_[:, 0]     = [0, 0, 0]
 
-        return theta
+        #apply filter to x_ and y_ to find newest y_
+        for i in [0,1,2]:       # For each blade...
+            for j in range(N):  # for each past input and output value...
+                                # apply filter coefficients.
+                self.y_[i,0] += self.b[j] * self.x_[i, j] - self.a[j] * self.y_[i, j]
 
+        #Calculate control feedback action
+        theta_ = -self.K*self.y_[:,0]
+
+        # Superimpose IPC control action (theta_) over power pitch
+        # demand (theta)
+        out = list(theta + theta_)
+
+        return out
+
+
+
+
+# IPC filter coefficients
+K = -1
+b = [0.04139865635722332, -0.24724984420650856, 0.6153247291080708,
+    -0.8167730078549886, 0.6098892568550152, -0.24290112363655772,
+    0.04031133337781191]
+
+a = [1.0, -5.918976177119697, 14.597287405477822, -19.19933888234148,
+     14.204054827782327, -5.6043617399861, 0.9213345662369582]
 
 simTime, sampleTime = 100, 0.01
 N_iters = int(simTime/sampleTime)
 
-
-HAWC2 = ExamplePitchSineWave('DTU10MW_Turbine/', 0.02)
-# run the simulation by specifying the htc filepath (relative to the
-# model directory) and the number of iterations in the simulation.
-HAWC2.run('htc/TCPExample.htc', N_iters)
+HAWC2 = IPC('DTU10MW_Turbine/', K, b, a)
+HAWC2.run('htc/IPCExample.htc', N_iters)
 
